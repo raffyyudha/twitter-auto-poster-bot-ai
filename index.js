@@ -1,6 +1,5 @@
 // By VishwaGauravIn (https://itsvg.in)
-
-const GenAI = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { TwitterApi } = require("twitter-api-v2");
 const SECRETS = require("./SECRETS");
 
@@ -13,34 +12,52 @@ const twitterClient = new TwitterApi({
 
 const generationConfig = {
   maxOutputTokens: 400,
+  temperature: 0.9,
+  topP: 1,
+  topK: 1,
 };
-const genAI = new GenAI.GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
+
+const genAI = new GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
 
 async function run() {
-  // For text-only input, use the gemini-pro model
-  const model = genAI.getGenerativeModel({
-    model: "gemini-pro",
-    generationConfig,
-  });
+  try {
+    // Gunakan model yang masih tersedia
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash", // Ganti dari gemini-pro
+      generationConfig,
+    });
 
-  // Write your prompt here
-  const prompt =
-    "Buat tips tips coding menggunakan bahasa indonesia, dengan gaya bahasa tidak kaku dan keren buatlah dengan apik dan sempurna";
+    // Write your prompt here
+    const prompt =
+      "Buat tips tips coding menggunakan bahasa indonesia, dengan gaya bahasa tidak kaku dan keren buatlah dengan apik dan sempurna. Maksimal 280 karakter untuk Twitter.";
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-  console.log(text);
-  sendTweet(text);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log("Generated text:", text);
+    console.log("Character count:", text.length);
+    
+    // Pastikan tidak melebihi batas Twitter (280 karakter)
+    const tweetText = text.length > 280 ? text.substring(0, 277) + "..." : text;
+    
+    await sendTweet(tweetText);
+  } catch (error) {
+    console.error("Error in run function:", error);
+  }
 }
-
-run();
 
 async function sendTweet(tweetText) {
   try {
-    await twitterClient.v2.tweet(tweetText);
+    const tweet = await twitterClient.v2.tweet(tweetText);
     console.log("Tweet sent successfully!");
+    console.log("Tweet ID:", tweet.data.id);
+    return tweet;
   } catch (error) {
     console.error("Error sending tweet:", error);
+    throw error;
   }
 }
+
+// Jalankan fungsi
+run();
