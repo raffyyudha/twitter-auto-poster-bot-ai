@@ -11,10 +11,10 @@ const twitterClient = new TwitterApi({
 });
 
 const generationConfig = {
-  maxOutputTokens: 400,
-  temperature: 0.9,
-  topP: 1,
-  topK: 1,
+  maxOutputTokens: 1000, // Naikkan dari 400 ke 1000
+  temperature: 0.8,
+  topP: 0.95,
+  topK: 40,
 };
 
 const genAI = new GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
@@ -27,9 +27,18 @@ async function run() {
       generationConfig,
     });
 
-    // Write your prompt here
-    const prompt =
-      "Buat tips tips coding menggunakan bahasa indonesia, dengan gaya bahasa tidak kaku dan keren buatlah dengan apik dan sempurna. Maksimal 280 karakter untuk Twitter.";
+    // Write your prompt here - prompt yang lebih detail
+    const prompt = `
+Buatlah tips coding dalam bahasa Indonesia dengan gaya santai dan keren. 
+Berikan 3-5 tips praktis yang bermanfaat untuk programmer.
+Format: 
+- Gunakan emoji yang relevan
+- Bahasa gaul tapi tetap informatif  
+- Maksimal 250 karakter total untuk Twitter
+- Jangan terlalu formal, bikin engaging
+
+Contoh style: "🔥 Pro tip: Selalu commit code dengan message yang jelas bro! Future you akan berterima kasih 😎"
+`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -38,8 +47,8 @@ async function run() {
     console.log("Generated text:", text);
     console.log("Character count:", text.length);
     
-    // Pastikan tidak melebihi batas Twitter (280 karakter)
-    const tweetText = text.length > 280 ? text.substring(0, 277) + "..." : text;
+    // Potong kalau masih terlalu panjang, tapi kasih ruang lebih
+    const tweetText = text.length > 270 ? text.substring(0, 267) + "..." : text;
     
     await sendTweet(tweetText);
   } catch (error) {
