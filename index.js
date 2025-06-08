@@ -1,4 +1,3 @@
-// By VishwaGauravIn (https://itsvg.in)
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { TwitterApi } = require("twitter-api-v2");
 const SECRETS = require("./SECRETS");
@@ -11,7 +10,7 @@ const twitterClient = new TwitterApi({
 });
 
 const generationConfig = {
-  maxOutputTokens: 1000, // Naikkan dari 400 ke 1000
+  maxOutputTokens: 2000, // Lebih besar untuk thread panjang
   temperature: 0.8,
   topP: 0.95,
   topK: 40,
@@ -21,49 +20,137 @@ const genAI = new GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
 
 async function run() {
   try {
-    // Gunakan model yang masih tersedia
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash", // Ganti dari gemini-pro
+      model: "gemini-1.5-flash",
       generationConfig,
     });
 
-    // Write your prompt here - prompt yang lebih detail
+    // Prompt untuk thread panjang
     const prompt = `
-Buatlah tips coding dalam bahasa Indonesia dengan gaya santai dan keren. 
-Berikan 3-5 tips praktis yang bermanfaat untuk programmer.
-Format: 
-- Gunakan emoji yang relevan
-- Bahasa gaul tapi tetap informatif  
-- Maksimal 250 karakter total untuk Twitter
-- Jangan terlalu formal, bikin engaging
+Buatlah thread Twitter tentang tips coding dalam bahasa Indonesia. 
+Format thread dengan 5-7 tweet yang saling berkaitan.
 
-Contoh style: "🔥 Pro tip: Selalu commit code dengan message yang jelas bro! Future you akan berterima kasih 😎"
+Aturan:
+- Setiap tweet maksimal 270 karakter
+- Tweet pertama: hook menarik + "🧵 THREAD"
+- Tweet 2-6: isi tips dengan detail, pakai emoji dan contoh
+- Tweet terakhir: kesimpulan + ajakan engagement
+- Pisahkan setiap tweet dengan "---SPLIT---"
+- Gaya: santai, informatif, engaging
+- Pakai numbering (1/, 2/, dst) di awal setiap tweet
+
+Contoh struktur:
+🔥 5 Tips Coding yang Bikin Lo Jadi Developer Lebih Keren! 🧵 THREAD
+
+1/ Pertama: Always use meaningful variable names...
+2/ Kedua: Git commit messages matter...
+dst...
+
+Topik bisa tentang: best practices, debugging, tools, atau career tips.
 `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    const text = response.text().trim();
     
-    console.log("Generated text:", text);
-    console.log("Character count:", text.length);
+    console.log("Generated thread:", text);
     
-    // Potong kalau masih terlalu panjang, tapi kasih ruang lebih
-    const tweetText = text.length > 270 ? text.substring(0, 267) + "..." : text;
+    // Split thread menjadi tweet-tweet terpisah
+    const tweets = text.split('---SPLIT---').map(tweet => tweet.trim()).filter(tweet => tweet.length > 0);
     
-    await sendTweet(tweetText);
+    console.log(`\nThread berisi ${tweets.length} tweets:`);
+    tweets.forEach((tweet, index) => {
+      console.log(`\n--- Tweet ${index + 1} (${tweet.length} chars) ---`);
+      console.log(tweet);
+    });
+    
+    // Validasi panjang setiap tweet
+    const validTweets = tweets.map(tweet => {
+      if (tweet.length > 270) {
+        console.log(`⚠️ Tweet terlalu panjang (${tweet.length} chars), memotong...`);
+        return smartTruncate(tweet, 270);
+      }
+      return tweet;
+    });
+    
+    await sendThread(validTweets);
+    
   } catch (error) {
     console.error("Error in run function:", error);
   }
 }
 
-async function sendTweet(tweetText) {
+function smartTruncate(str, maxLength) {
+  if (str.length <= maxLength) return str;
+  
+  // Cari titik atau tanda seru terakhir sebelum batas
+  const lastSentenceEnd = Math.max(
+    str.lastIndexOf('.', maxLength),
+    str.lastIndexOf('!', maxLength),
+    str.lastIndexOf('?', maxLength)
+  );
+  
+  if (lastSentenceEnd > maxLength * 0.7) {
+    return str.substring(0, lastSentenceEnd + 1);
+  }
+  
+  // Jika tidak ada, potong di spasi terakhir
+  const lastSpace = str.lastIndexOf(' ', maxLength - 3);
+  if (lastSpace > maxLength * 0.7) {
+    return str.substring(0, lastSpace) + "...";
+  }
+  
+  // Last resort - potong paksa
+  return str.substring(0, maxLength - 3) + "...";
+}
+
+async function sendThread(tweets) {
   try {
-    const tweet = await twitterClient.v2.tweet(tweetText);
-    console.log("Tweet sent successfully!");
-    console.log("Tweet ID:", tweet.data.id);
-    return tweet;
+    console.log("\n🚀 Memulai posting thread...");
+    
+    let previousTweetId = null;
+    
+    for (let i = 0; i < tweets.length; i++) {
+      const tweetText = tweets[i];
+      
+      console.log(`\nPosting tweet ${i + 1}/${tweets.length}...`);
+      console.log(`Text: ${tweetText}`);
+      
+      const tweetOptions = {
+        text: tweetText
+      };
+      
+      // Kalau bukan tweet pertama, reply ke tweet sebelumnya
+      if (previousTweetId) {
+        tweetOptions.reply = {
+          in_reply_to_tweet_id: previousTweetId
+        };
+      }
+      
+      const tweet = await twitterClient.v2.tweet(tweetOptions);
+      previousTweetId = tweet.data.id;
+      
+      console.log(`✅ Tweet ${i + 1} berhasil! ID: ${tweet.data.id}`);
+      
+      // Delay 2 detik antar tweet untuk avoid rate limit
+      if (i < tweets.length - 1) {
+        console.log("⏳ Menunggu 2 detik...");
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    console.log("\n🎉 Thread berhasil diposting!");
+    console.log(`Total: ${tweets.length} tweets`);
+    
   } catch (error) {
-    console.error("Error sending tweet:", error);
+    console.error("❌ Error posting thread:", error);
+    
+    if (error.code === 429) {
+      console.log("⚠️ Rate limit exceeded. Coba lagi dalam beberapa menit.");
+    } else if (error.code === 403) {
+      console.log("⚠️ Permission denied. Pastikan app permissions 'Read and Write'.");
+    }
+    
     throw error;
   }
 }
