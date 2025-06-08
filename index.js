@@ -27,24 +27,7 @@ async function run() {
 
     // Prompt untuk thread panjang
     const prompt = `
-Buatlah thread Twitter tentang tips coding dalam bahasa Indonesia. 
-Format thread dengan 5-7 tweet yang saling berkaitan.
-
-Aturan:
-- Setiap tweet maksimal 270 karakter
-- Tweet pertama: hook menarik + "🧵 THREAD"
-- Tweet 2-6: isi tips dengan detail, pakai emoji dan contoh
-- Tweet terakhir: kesimpulan + ajakan engagement
-- Pisahkan setiap tweet dengan "---SPLIT---"
-- Gaya: santai, informatif, engaging
-- Pakai numbering (1/, 2/, dst) di awal setiap tweet
-
-Contoh struktur:
-🔥 5 Tips Coding yang Bikin Lo Jadi Developer Lebih Keren! 🧵 THREAD
-
-1/ Pertama: Always use meaningful variable names...
-2/ Kedua: Git commit messages matter...
-dst...
+Buatlah thread Twitter yang bisa membuat engagement dan akun saya naik drastis buat aja sesuatu agar viral yang berhubungan dengan ai/programing bisa berita, tips , sesuatu atau apalah yang membuat viral
 
 Topik bisa tentang: best practices, debugging, tools, atau career tips.
 `;
